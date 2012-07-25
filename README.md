@@ -7,18 +7,18 @@ to disk and wants the resulting audiofiles to be sorted according to
 artist and album names.
 
 Installation
-=============
+------------
 
 Just download and execute.
 
 Dependencies
-============
+------------
 
 python >= 2.6, mutagen >= 1.20
 
-
 Usage Example
-=============
+--------------
+
 ```
 $ audiosort.py -h
 Usage: audiosort.py [options] source_directory
