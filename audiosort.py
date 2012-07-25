@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 '''
-Created on 23.07.2012
+The purpose of this program is to sort audio files according to the meta
+information found in the file and put them in a directory structure. If no meta
+information is found, the processing of the file is skipped.
 
-@author: roman
+The structure that is created is: artist/album. If the file is flaged as part
+of a compilation it will be put in Compilations/<album>
 '''
 from __future__ import print_function
 
-__version__ = "1.0"
+__version__ = "0.1 alpha"
 
 import os
 import shutil
@@ -14,6 +17,7 @@ import re
 
 from optparse import OptionParser
 from mutagen import File
+import mutagen
 
 vprint = None
 
@@ -22,27 +26,49 @@ re_fcnt = re.compile("\([0-9]*\)$")
 class UnsupportedFileType(Exception):
     pass
 
+class Mp4KeyMap(object):
+     
+    title = '\xa9nam'
+    album = '\xa9alb'
+    artist = '\xa9ART'
+    description = 'desc'
+    genre = '\xa9gen'
+    diskcnumber = 'disk'
+    tracknumber = 'trkn'
+    compilation = "cpil"
+    
+class Id3KeyMap(object):
+    
+    title = "TIT2"
+    album = "TALB"
+    artist = "TPE1"
+    discsubtitle = "TSST"
+    genre = "TCON"
+    disknumber = "TPOS"
+    tracknumber = "TRCK"
+    compilation = "TCMP"
+          
 def parse_options():
     
-    usage = "usage: %prog [options] arg1 arg2"
+    usage = "usage: %prog [options] source_directory"
 
     parser = OptionParser(usage=usage, version=__version__)
 
     parser.add_option("-d", "--destination", dest="dest", default=".",
-                      help="destination directory")
+                      help="Destination directory")
         
     parser.add_option("-c", "--copy", dest="copy", default=True,
                       action="store_true",
-                      help="copy files to destination (default)")
+                      help="Copy files to destination (default).")
     parser.add_option("-m", "--move", dest="copy",
                       action="store_false",
-                      help="move files to destination")                  
+                      help="Move files to destination (possibly dangerous).")                  
     parser.add_option("-v", "--verbose",
                   action="store_true", dest="verbose", default=False ,
-                  help="be silent while processing")
+                  help="Write lots of information on the console while processing.")
     parser.add_option("-a", "--all",
                   action="store_true", dest="hidden", default=False ,
-                  help="traverse hidden directories")
+                  help="Traverse hidden directories.")
     return parser.parse_args()
 
 def _copy(source,target):
@@ -60,26 +86,34 @@ def get_new_path(source,target):
 
     filename = os.path.basename(source).decode("utf-8")
     
-    f = File(source, easy=True)
+    f = File(source)
     if f is None:
         raise UnsupportedFileType(source) 
     
+    if isinstance(f,mutagen.mp4.MP4):
+        KeyMap = Mp4KeyMap
+    else:
+        KeyMap = Id3KeyMap
+        
     try:
-        artist = f["artist"][0]
+        artist = f[KeyMap.artist][0]
     except KeyError:
         artist = u"Unknown Artist"
-        
+    
+    if f.get(KeyMap.compilation, None):
+        artist = "Compilations"    
+    
     try: 
-        album = f["album"][0]
+        album = f[KeyMap.album][0]
     except KeyError:
         album = u"Unknown Album"
+    
     base = os.path.join(target, artist, album)
     
     try:
         os.makedirs(base)
     except OSError:
         pass
-
     
     new_file_name = _get_file_name(base,filename)
     new_path = os.path.join(base,new_file_name)
